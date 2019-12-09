@@ -20,6 +20,7 @@ from keras.layers.convolutional import Deconvolution2D, Conv2DTranspose, Conv2D
 from keras.layers.merge import concatenate
 from keras import backend
 from tensorflow.python.client import device_lib
+from sklearn.utils import class_weight
 
 print("-------------")
 
@@ -35,6 +36,8 @@ def mean_iou(y_true, y_pred):
     return backend.mean(backend.stack(prec), axis=0)
 
 def dice_coef(y_true, y_pred, smooth=1):
+  print(y_pred)
+  print(y_pred.shape)
   intersection = backend.sum(y_true * y_pred, axis=[1,2,3])
   union = backend.sum(y_true, axis=[1,2,3]) + backend.sum(y_pred, axis=[1,2,3])
   dice = backend.mean((2. * intersection + smooth)/(union + smooth), axis=0)
@@ -98,6 +101,22 @@ def unet_model():
     model.summary()
     return model
 
+
+def showImg(id):
+    img = np.asarray(train[id])
+    plt.imshow(truth[id])
+    plt.show()
+    img = img.reshape((1,) + img.shape)
+    output = model.predict(img)[0]
+    cutoff = 0.6
+    output[output > cutoff] = 1
+    output[output <= cutoff] = 0
+    output = cv2.merge((output, output, output))
+    plt.imshow(output, interpolation='nearest')
+    plt.show()
+
+def findWeights(ydata):
+    weights = class_weight.compute_class_weight('balanced',np.unique(ydata),ydata.flat)
 model = unet_model()
 batch_size = 16
 train_size = 2000
@@ -126,8 +145,7 @@ y_train = np.asarray(y[:train_size])
 y_train = y_train.reshape(y_train.shape + (1,))
 y_test = np.asarray(y[train_size:])
 y_test = y_test.reshape(y_test.shape + (1,))
-print(y_train.shape)
-print(y_test.shape)
+weight = {0:1.0,1:10.0}
 callbacks = [EarlyStopping(patience=10, verbose=1,monitor='val_loss'),ReduceLROnPlateau(patience=5, verbose=1,monitor='val_loss')]
 WEIGHTS_FILE = 'test.h5'
 if(False):
@@ -137,27 +155,9 @@ else:
     model.load_weights(WEIGHTS_FILE)
 #print(model.evaluate(x_test,y_test))
 print("--------------")
-img = np.asarray(train[120])
-#plt.imshow(img)
-#plt.show()
-plt.imshow(truth[120])
-plt.show()
-img = img.reshape((1,) + img.shape)
-print('**'+str(img.shape))
-output = model.predict(img)[0]
-print(output.min())
-print(output.max())
-outputround = output.copy()
-cutoff = 0.6
-outputround[outputround > cutoff] = 1
-outputround[outputround <= cutoff] = 0
-outputround = cv2.merge((outputround,outputround,outputround))
-print(outputround.min())
-print(outputround.max())
-print(outputround.shape)
-
-output = cv2.merge((output,output,output))
-plt.imshow(outputround, interpolation='nearest')
-plt.show()
-plt.imshow(output, interpolation='nearest')
-plt.show()
+showImg(2121)
+showImg(2555)
+showImg(200)
+showImg(75)
+showImg(100)
+showImg(25)
