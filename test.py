@@ -22,22 +22,36 @@ from keras import backend
 from tensorflow.python.client import device_lib
 from sklearn.utils import class_weight
 
-print("-------------")
+#def mean_iou(y_true, y_pred):
+ #   prec = []
+#    for t in np.arange(0.5, 1.0, 0.05):
+#        y_pred_ = tf.cast(y_pred > t, tf.int32)
+#        score, up_opt = tf.compat.v1.metrics.mean_iou(y_true, y_pred_, 2)
+#        backend.get_session().run(tf.local_variables_initializer())
+#        with tf.control_dependencies([up_opt]):
+#            score = tf.identity(score)
+#        prec.append(score)
+#    return backend.mean(backend.stack(prec), axis=0)
 
-def mean_iou(y_true, y_pred):
-    prec = []
-    for t in np.arange(0.5, 1.0, 0.05):
-        y_pred_ = tf.to_int32(y_pred > t)
-        score, up_opt = tf.metrics.mean_iou(y_true, y_pred_, 2)
-        backend.get_session().run(tf.local_variables_initializer())
-        with tf.control_dependencies([up_opt]):
-            score = tf.identity(score)
-        prec.append(score)
-    return backend.mean(backend.stack(prec), axis=0)
+def iou(true, pred):
+    #cutoff = 0.5
+    #true = true > cutoff
+    #pred = pred > cutoff
+    #intersection = true & pred
+    #union = true | pred
+    #iou_score = backend.sum(intersection) / backend.sum(union)
+    score = tf.compat.v1.metrics.mean_iou(true, pred, 2)
+    print(score)
+    print(type(score))
+    return score
+
+def iou_coef(y_true, y_pred, smooth=1):
+  intersection = backend.sum(backend.abs(y_true * y_pred), axis=[1,2,3])
+  union = backend.sum(y_true,[1,2,3])+backend.sum(y_pred,[1,2,3])-intersection
+  iou = backend.mean((intersection + smooth) / (union + smooth), axis=0)
+  return iou
 
 def dice_coef(y_true, y_pred, smooth=1):
-  print(y_pred)
-  print(y_pred.shape)
   intersection = backend.sum(y_true * y_pred, axis=[1,2,3])
   union = backend.sum(y_true, axis=[1,2,3]) + backend.sum(y_pred, axis=[1,2,3])
   dice = backend.mean((2. * intersection + smooth)/(union + smooth), axis=0)
@@ -97,8 +111,8 @@ def unet_model():
 
     outputs = Conv2D(1, (1, 1), activation='sigmoid')(c9)
     model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[mean_iou])
-    model.summary()
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[iou_coef])
+    #model.summary()
     return model
 
 
@@ -108,7 +122,7 @@ def showImg(id):
     plt.show()
     img = img.reshape((1,) + img.shape)
     output = model.predict(img)[0]
-    cutoff = 0.6
+    cutoff = 0.5
     output[output > cutoff] = 1
     output[output <= cutoff] = 0
     output = cv2.merge((output, output, output))
@@ -117,47 +131,51 @@ def showImg(id):
 
 def findWeights(ydata):
     weights = class_weight.compute_class_weight('balanced',np.unique(ydata),ydata.flat)
-model = unet_model()
-batch_size = 16
-train_size = 2000
-test_size = 500
-train = []
-truth = []
-path = 'data/train/'
-dir = sorted(os.listdir(path))
-for file in dir:
-    img = image.imread(path+file)
-    train.append(img/255)
-print(str(len(train))+ " images loaded for training")
-print(np.asarray(train).shape)
-path = 'data/train_truth/'
-dir = sorted(os.listdir(path))
-for file in dir:
-    img = image.imread(path+file)
-    truth.append(img/255)
-print(str(len(truth))+ " Truth images loaded for training")
-print(np.asarray(truth).shape)
-x, y = zip(*random.sample(list(zip(train, truth)), train_size+test_size))
-x_train = np.asarray(x[:train_size])
-#x_train = x_train.reshape((1,)+ x_train.shape)
-x_test = np.asarray(x[train_size:])
-y_train = np.asarray(y[:train_size])
-y_train = y_train.reshape(y_train.shape + (1,))
-y_test = np.asarray(y[train_size:])
-y_test = y_test.reshape(y_test.shape + (1,))
-weight = {0:1.0,1:10.0}
-callbacks = [EarlyStopping(patience=10, verbose=1,monitor='val_loss'),ReduceLROnPlateau(patience=5, verbose=1,monitor='val_loss')]
-WEIGHTS_FILE = 'test.h5'
-if(False):
-    model.fit(x=x_train,y=y_train,batch_size=batch_size,epochs=1,validation_data=(x_test,y_test),callbacks = callbacks)
-    model.save_weights(WEIGHTS_FILE)
-else:
-    model.load_weights(WEIGHTS_FILE)
-#print(model.evaluate(x_test,y_test))
-print("--------------")
-showImg(2121)
-showImg(2555)
-showImg(200)
-showImg(75)
-showImg(100)
-showImg(25)
+
+def load_data():
+    train = []
+    truth = []
+    path = 'data/train/'
+    dir = sorted(os.listdir(path))
+    for file in dir:
+        img = image.imread(path + file)
+        train.append(img / 255)
+    print(str(len(train)) + " images loaded for training")
+    path = 'data/train_truth/'
+    dir = sorted(os.listdir(path))
+    for file in dir:
+        img = image.imread(path + file)
+        truth.append(img / 255)
+    print(str(len(truth)) + " Truth images loaded for training")
+    return train, truth
+
+
+if __name__ == "__main__":
+    train_size = 2000
+    test_size = 500
+    model = unet_model()
+    train, truth = load_data()
+    x, y = zip(*random.sample(list(zip(train, truth)), train_size + test_size))
+    x_train = np.asarray(x[:train_size])
+    # x_train = x_train.reshape((1,)+ x_train.shape)
+    x_test = np.asarray(x[train_size:])
+    y_train = np.asarray(y[:train_size])
+    y_train = y_train.reshape(y_train.shape + (1,))
+    y_test = np.asarray(y[train_size:])
+    y_test = y_test.reshape(y_test.shape + (1,))
+    weight = {0: 1.0, 1: 10.0}
+    callbacks = [EarlyStopping(patience=10, verbose=1, monitor='val_loss'),
+                 ReduceLROnPlateau(patience=5, verbose=1, monitor='val_loss')]
+    WEIGHTS_FILE = 'test32-200-5.h5'
+    if (False):
+        model.fit(x=x_train, y=y_train, batch_size=32, epochs=200, validation_data=(x_test, y_test),
+                  callbacks=callbacks)
+        model.save_weights(WEIGHTS_FILE)
+    else:
+        model.load_weights(WEIGHTS_FILE)
+    print(model.evaluate(x_test, y_test))  # (loss,accuracy)
+    print("--------------")
+    showImg(2121)
+    showImg(200)
+    showImg(100)
+    showImg(25)
