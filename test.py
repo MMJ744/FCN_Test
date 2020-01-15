@@ -18,20 +18,39 @@ from keras.layers import Dense, Activation, Convolution2D, MaxPooling2D, Lambda
 from keras.layers import Dropout, Flatten, Dense
 from keras.layers.convolutional import Deconvolution2D, Conv2DTranspose, Conv2D
 from keras.layers.merge import concatenate
-from keras import backend
+from keras import backend as K
 from tensorflow.python.client import device_lib
 from sklearn.utils import class_weight
 
-#def mean_iou(y_true, y_pred):
- #   prec = []
-#    for t in np.arange(0.5, 1.0, 0.05):
-#        y_pred_ = tf.cast(y_pred > t, tf.int32)
-#        score, up_opt = tf.compat.v1.metrics.mean_iou(y_true, y_pred_, 2)
-#        backend.get_session().run(tf.local_variables_initializer())
-#        with tf.control_dependencies([up_opt]):
-#            score = tf.identity(score)
-#        prec.append(score)
-#    return backend.mean(backend.stack(prec), axis=0)
+
+def total(y_true, y_pred):
+    return K.sum(K.round(K.cast(K.less(K.clip(y_true, 0, 1),10),'int32')))
+
+
+def acc(y_true, y_pred):
+    tn = K.sum(K.cast_to_floatx(K.less(K.clip(y_true * y_pred, 0, 1),0.5)))
+    total = K.sum(K.cast_to_floatx(K.less(K.clip(y_true, 0, 1),10)))
+    return (K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))+tn)# / total
+
+
+def recall(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    recall = true_positives / (possible_positives + K.epsilon())
+    return recall
+
+
+def precision(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    return precision
+
+
+def f(y_true, y_pred):
+    p = precision(y_true, y_pred)
+    r = recall(y_true, y_pred)
+    return 2 * ((p * r) / (p + r + K.epsilon()))
 
 def iou(true, pred):
     #cutoff = 0.5
@@ -46,15 +65,17 @@ def iou(true, pred):
     return score
 
 def iou_coef(y_true, y_pred, smooth=1):
-  intersection = backend.sum(backend.abs(y_true * y_pred), axis=[1,2,3])
-  union = backend.sum(y_true,[1,2,3])+backend.sum(y_pred,[1,2,3])-intersection
-  iou = backend.mean((intersection + smooth) / (union + smooth), axis=0)
+  intersection = K.sum(K.abs(y_true * y_pred), axis=[1, 2, 3])
+  union = K.sum(y_true, [1, 2, 3]) + K.sum(y_pred, [1, 2, 3]) - intersection
+  iou = K.mean((intersection + smooth) / (union + smooth), axis=0)
   return iou
 
 def dice_coef(y_true, y_pred, smooth=1):
-  intersection = backend.sum(y_true * y_pred, axis=[1,2,3])
-  union = backend.sum(y_true, axis=[1,2,3]) + backend.sum(y_pred, axis=[1,2,3])
-  dice = backend.mean((2. * intersection + smooth)/(union + smooth), axis=0)
+  print(y_true.shape)
+  print(y_pred.shape)
+  intersection = K.sum(K.abs(y_true * y_pred), axis=[1, 2, 3])
+  union = K.sum(y_true, axis=[1, 2, 3]) + K.sum(y_pred, axis=[1, 2, 3])
+  dice = K.mean((2. * intersection + smooth) / (union + smooth), axis=0)
   return dice
 
 def unet_model():
@@ -111,7 +132,7 @@ def unet_model():
 
     outputs = Conv2D(1, (1, 1), activation='sigmoid')(c9)
     model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[iou_coef])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[iou_coef,f, precision,recall,acc, total])
     #model.summary()
     return model
 
@@ -166,13 +187,16 @@ if __name__ == "__main__":
     weight = {0: 1.0, 1: 10.0}
     callbacks = [EarlyStopping(patience=10, verbose=1, monitor='val_loss'),
                  ReduceLROnPlateau(patience=5, verbose=1, monitor='val_loss')]
-    WEIGHTS_FILE = 'test32-200-5.h5'
-    if (False):
+    WEIGHTS_FILE = 'class_weights.h5'
+    if (True):
         model.fit(x=x_train, y=y_train, batch_size=32, epochs=200, validation_data=(x_test, y_test),
                   callbacks=callbacks)
         model.save_weights(WEIGHTS_FILE)
     else:
         model.load_weights(WEIGHTS_FILE)
+    x = x_train[50]
+    x = x.reshape((1,) + x.shape)
+    out = model.predict(x)[0]
     print(model.evaluate(x_test, y_test))  # (loss,accuracy)
     print("--------------")
     showImg(2121)
