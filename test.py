@@ -3,17 +3,11 @@ import PIL
 import random
 import os
 import numpy as np
-import keras
-import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from keras import Input, Model
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from matplotlib import image
-from keras.preprocessing.image import ImageDataGenerator
-from keras.preprocessing.image import load_img
-from keras.preprocessing.image import img_to_array
-from keras.models import Sequential
 from keras.layers import Dense, Activation, Convolution2D, MaxPooling2D, Lambda
 from keras.layers import Dropout, Flatten, Dense
 from keras.layers.convolutional import Deconvolution2D, Conv2DTranspose, Conv2D
@@ -21,16 +15,6 @@ from keras.layers.merge import concatenate
 from keras import backend as K
 from tensorflow.python.client import device_lib
 from sklearn.utils import class_weight
-
-
-def total(y_true, y_pred):
-    return K.sum(K.round(K.cast(K.less(K.clip(y_true, 0, 1),10),'int32')))
-
-
-def acc(y_true, y_pred):
-    tn = K.sum(K.cast_to_floatx(K.less(K.clip(y_true * y_pred, 0, 1),0.5)))
-    total = K.sum(K.cast_to_floatx(K.less(K.clip(y_true, 0, 1),10)))
-    return (K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))+tn)# / total
 
 
 def recall(y_true, y_pred):
@@ -132,7 +116,7 @@ def unet_model():
 
     outputs = Conv2D(1, (1, 1), activation='sigmoid')(c9)
     model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[iou_coef,f, precision,recall,acc, total])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[iou_coef,f, precision,recall])
     #model.summary()
     return model
 

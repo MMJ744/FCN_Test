@@ -2,7 +2,8 @@ from test import load_data, unet_model, dice_coef
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-
+import math
+from collections import Counter
 def display_all(predicts):
     for p in predicts:
         cutoff = 0.5
@@ -12,6 +13,37 @@ def display_all(predicts):
         plt.imshow(p, interpolation='nearest')
         plt.show()
 
+def correctly_predicted(zipped):
+    accuracy = []
+    for t, p in zipped:
+        accuracy.append(np.sum(t == p))
+    return accuracy
+
+def f1(zipped):
+    print(zipped)
+    f1 = []
+    pre = []
+    rec = []
+    for t,p in zipped:
+        totalP = np.sum(t)
+        totalPPredicted = np.sum(p)
+        tp = np.sum(t * p)
+        p = tp / totalPPredicted
+        r = tp / totalP
+        f = 2*p*r / (p+r)
+        if not math.isnan(f):
+            pre.append(p)
+            rec.append(r)
+            f1.append(f)
+    return f1, pre, rec
+
+def showInfo(arr):
+    print('max  ' + str(max(arr)))
+    print('avg  ' + str(sum(arr) / len(arr)))
+    print('min  ' + str(min(arr)))
+    print('> 0.75   ' + str(sum(i > 0.75 for i in arr)))
+    print('< 0.25   ' + str(sum(i < 0.25 for i in arr)))
+    print('---')
 input, truth = load_data()
 input = np.asarray(input)
 truth = np.asarray(truth)
@@ -24,6 +56,18 @@ x=200
 given = input[x]
 given = given.reshape((1,) + given.shape)
 correct = truth[x]
+predictedWhole = models[4].predict(input)
+predictedWhole = np.rint(predictedWhole)
+print("------")
+zipped = zip(truth,predictedWhole)
+accuracy = correctly_predicted(zipped)
+zipped = zip(truth,predictedWhole)
+f1, pre, rec = f1(zipped)
+showInfo(f1)
+showInfo(pre)
+showInfo(rec)
+print("------")
+exit()
 #plt.imshow(correct, interpolation='nearest')
 #plt.show()
 predicts = []
