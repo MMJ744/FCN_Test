@@ -20,7 +20,6 @@ def correctly_predicted(zipped):
     return accuracy
 
 def f1(zipped):
-    print(zipped)
     f1 = []
     pre = []
     rec = []
@@ -44,6 +43,13 @@ def showInfo(arr):
     print('> 0.75   ' + str(sum(i > 0.75 for i in arr)))
     print('< 0.25   ' + str(sum(i < 0.25 for i in arr)))
     print('---')
+
+def eval(truth, predicted):
+    predicted = np.rint(predicted)
+    zipped = zip(truth,predicted)
+    f,p,r = f1(zipped)
+    showInfo(f)
+
 input, truth = load_data()
 input = np.asarray(input)
 truth = np.asarray(truth)
@@ -56,44 +62,47 @@ x=200
 given = input[x]
 given = given.reshape((1,) + given.shape)
 correct = truth[x]
-predictedWhole = models[4].predict(input)
-predictedWhole = np.rint(predictedWhole)
-print("------")
-zipped = zip(truth,predictedWhole)
-accuracy = correctly_predicted(zipped)
-zipped = zip(truth,predictedWhole)
-f1, pre, rec = f1(zipped)
-showInfo(f1)
-showInfo(pre)
-showInfo(rec)
-print("------")
-exit()
+#predictedWhole = models[4].predict(input)
+#predictedWhole = np.rint(predictedWhole)
+#print("------")
+#zipped = zip(truth,predictedWhole)
+#accuracy = correctly_predicted(zipped)
+#zipped = zip(truth,predictedWhole)
+#f1, pre, rec = f1(zipped)
+#showInfo(f1)
+#showInfo(pre)
+#showInfo(rec)
+#print("------")
+
 #plt.imshow(correct, interpolation='nearest')
 #plt.show()
 predicts = []
 for model in models:
-    print(model.evaluate(input,truth))
-    output = model.predict(given)[0]
+    #print(model.evaluate(input,truth))
+    output = model.predict(input)
     predicts.append(output)
 
 average = (predicts[0] + predicts[1] + predicts[2] + predicts[3] + predicts[4]) / 5.0
 #Get dice of them
 cutoff = 0.5
 for p in predicts:
-    print(p.shape)
-    print(correct.shape)
     p[p > cutoff] = 1
     p[p <= cutoff] = 0
     #print(dice_coef(correct,p))
 average[average > cutoff] = 1
 average[average <= cutoff] = 0
 #print(dice_coef(correct,average))
+show = False
+if (show):
+    average = cv2.merge((average, average, average))
+    plt.imshow(average, interpolation='nearest')
+    plt.show()
+    display_all(predicts)
+
+for i in range(5):
+    print("Model " + str(i))
+    eval(truth, predicts[i])
+print("Ensamble")
+eval(truth, average)
 
 
-average = cv2.merge((average, average, average))
-plt.imshow(average, interpolation='nearest')
-plt.show()
-
-
-
-display_all(predicts)
