@@ -3,6 +3,8 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import math
+from matplotlib import image
+import os
 from collections import Counter
 def display_all(predicts):
     for p in predicts:
@@ -50,19 +52,30 @@ def eval(truth, predicted):
     f,p,r = f1(zipped)
     showInfo(f)
 
-input, truth = load_data()
-input = np.asarray(input)
-truth = np.asarray(truth)
-truth = truth.reshape(truth.shape + (1,))
+test_truth = []
+path = 'data/test_truth/'
+dir = sorted(os.listdir(path))
+for file in dir:
+    img = image.imread(path + file)
+    test_truth.append(img / 255)
+path = 'data/test/'
+dir = sorted(os.listdir(path))
+test = []
+for file in dir:
+    img = image.imread(path + file)
+    test.append(img / 255)
+test = np.asarray(test)
+test_truth = np.asarray(test_truth)
+test_truth = test_truth.reshape(test_truth.shape + (1,))
 models = [unet_model(),unet_model(),unet_model(),unet_model(),unet_model()]
 weight_base = 'test32-200-'
 for i in range(5):
     models[i].load_weights(weight_base+str(i+1)+'.h5')
 x=200
-given = input[x]
+given = test[x]
 given = given.reshape((1,) + given.shape)
-correct = truth[x]
-#predictedWhole = models[4].predict(input)
+correct = test_truth[x]
+#predictedWhole = models[4].predict(test)
 #predictedWhole = np.rint(predictedWhole)
 #print("------")
 #zipped = zip(truth,predictedWhole)
@@ -78,8 +91,8 @@ correct = truth[x]
 #plt.show()
 predicts = []
 for model in models:
-    #print(model.evaluate(input,truth))
-    output = model.predict(input)
+    #print(model.evaluate(test,truth))
+    output = model.predict(test)
     predicts.append(output)
 
 average = (predicts[0] + predicts[1] + predicts[2] + predicts[3] + predicts[4]) / 5.0
@@ -101,8 +114,8 @@ if (show):
 
 for i in range(5):
     print("Model " + str(i))
-    eval(truth, predicts[i])
+    eval(test_truth, predicts[i])
 print("Ensamble")
-eval(truth, average)
+eval(test_truth, average)
 
 

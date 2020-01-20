@@ -156,8 +156,8 @@ def load_data():
 
 
 if __name__ == "__main__":
-    train_size = 2000
-    test_size = 500
+    train_size = 2250
+    test_size = 750
     model = unet_model()
     train, truth = load_data()
     x, y = zip(*random.sample(list(zip(train, truth)), train_size + test_size))
@@ -169,21 +169,36 @@ if __name__ == "__main__":
     y_test = np.asarray(y[train_size:])
     y_test = y_test.reshape(y_test.shape + (1,))
     weight = {0: 1.0, 1: 10.0}
-    callbacks = [EarlyStopping(patience=10, verbose=1, monitor='val_loss'),
+    callbacks = [EarlyStopping(patience=15, verbose=1, monitor='val_loss'),
                  ReduceLROnPlateau(patience=5, verbose=1, monitor='val_loss')]
-    WEIGHTS_FILE = 'class_weights.h5'
+    WEIGHTS_FILE = 'newdata32-100-1.h5'
     if (True):
-        model.fit(x=x_train, y=y_train, batch_size=32, epochs=200, validation_data=(x_test, y_test),
-                  callbacks=callbacks)
+        model.fit(x=x_train, y=y_train, batch_size=32, epochs=100, validation_data=(x_test, y_test) )#,callbacks=callbacks
         model.save_weights(WEIGHTS_FILE)
     else:
         model.load_weights(WEIGHTS_FILE)
-    x = x_train[50]
-    x = x.reshape((1,) + x.shape)
-    out = model.predict(x)[0]
-    print(model.evaluate(x_test, y_test))  # (loss,accuracy)
-    print("--------------")
-    showImg(2121)
-    showImg(200)
-    showImg(100)
-    showImg(25)
+    #x = x_train[50]
+    #x = x.reshape((1,) + x.shape)
+    #out = model.predict(x)[0]
+    #print(model.evaluate(x_test, y_test))  # (loss,accuracy)
+    #print("--------------")
+    #showImg(2121)
+    #showImg(200)
+    #showImg(100)
+    #showImg(25)
+    test_truth = []
+    path = 'data/test_truth/'
+    dir = sorted(os.listdir(path))
+    for file in dir:
+        img = image.imread(path + file)
+        test_truth.append(img / 255)
+    path = 'data/test/'
+    dir = sorted(os.listdir(path))
+    test = []
+    for file in dir:
+        img = image.imread(path + file)
+        test.append(img / 255)
+    test = np.asarray(test)
+    test_truth = np.asarray(test_truth)
+    test_truth = test_truth.reshape(test_truth.shape + (1,))
+    print(model.evaluate(test,test_truth))
