@@ -68,7 +68,7 @@ test = np.asarray(test)
 test_truth = np.asarray(test_truth)
 test_truth = test_truth.reshape(test_truth.shape + (1,))
 models = [unet_model(),unet_model(),unet_model(),unet_model(),unet_model()]
-weight_base = 'test32-200-'
+weight_base = 'newdata32-'
 for i in range(5):
     models[i].load_weights(weight_base+str(i+1)+'.h5')
 x=200
@@ -89,21 +89,29 @@ correct = test_truth[x]
 
 #plt.imshow(correct, interpolation='nearest')
 #plt.show()
+cutoff = 0.3
 predicts = []
 for model in models:
     #print(model.evaluate(test,truth))
     output = model.predict(test)
+    #output[output >= cutoff] = 1
+    #output[output < cutoff] = 0
     predicts.append(output)
 
-average = (predicts[0] + predicts[1] + predicts[2] + predicts[3] + predicts[4]) / 5.0
+average = (predicts[0] + predicts[1] + predicts[2] + predicts[3] + predicts[4]) / 5 # Weighted voting
+
 #Get dice of them
-cutoff = 0.5
+
 for p in predicts:
-    p[p > cutoff] = 1
-    p[p <= cutoff] = 0
+    p[p >= cutoff] = 1
+    p[p < cutoff] = 0
     #print(dice_coef(correct,p))
-average[average > cutoff] = 1
-average[average <= cutoff] = 0
+print(np.max(average))
+cutoff = 0.3
+average[average >= cutoff] = 1.0
+average[average < cutoff] = 0.0
+
+print(np.max(average))
 #print(dice_coef(correct,average))
 show = False
 if (show):

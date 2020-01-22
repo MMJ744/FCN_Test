@@ -171,9 +171,9 @@ if __name__ == "__main__":
     weight = {0: 1.0, 1: 10.0}
     callbacks = [EarlyStopping(patience=15, verbose=1, monitor='val_loss'),
                  ReduceLROnPlateau(patience=5, verbose=1, monitor='val_loss')]
-    WEIGHTS_FILE = 'newdata32-100-1.h5'
+    WEIGHTS_FILE = 'newdata32-300-1.h5'
     if (True):
-        model.fit(x=x_train, y=y_train, batch_size=32, epochs=100, validation_data=(x_test, y_test) )#,callbacks=callbacks
+        model.fit(x=x_train, y=y_train, batch_size=32, epochs=300, validation_data=(x_test, y_test) )#,callbacks=callbacks
         model.save_weights(WEIGHTS_FILE)
     else:
         model.load_weights(WEIGHTS_FILE)
