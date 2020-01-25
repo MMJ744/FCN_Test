@@ -13,9 +13,10 @@ from keras.layers import Dropout, Flatten, Dense
 from keras.layers.convolutional import Deconvolution2D, Conv2DTranspose, Conv2D
 from keras.layers.merge import concatenate
 from keras import backend as K
+import keras.preprocessing as preprocessing
 from tensorflow.python.client import device_lib
 from sklearn.utils import class_weight
-
+import  models
 
 def recall(y_true, y_pred):
     true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
@@ -62,68 +63,12 @@ def dice_coef(y_true, y_pred, smooth=1):
   dice = K.mean((2. * intersection + smooth) / (union + smooth), axis=0)
   return dice
 
-def unet_model():
-    inputs = Input((256, 256, 3))
-    s = Lambda(lambda x: x / 255)(inputs)
-
-    c1 = Conv2D(16, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(s)
-    c1 = Dropout(0.1)(c1)
-    c1 = Conv2D(16, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c1)
-    p1 = MaxPooling2D((2, 2))(c1)
-
-    c2 = Conv2D(32, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(p1)
-    c2 = Dropout(0.1)(c2)
-    c2 = Conv2D(32, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c2)
-    p2 = MaxPooling2D((2, 2))(c2)
-
-    c3 = Conv2D(64, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(p2)
-    c3 = Dropout(0.2)(c3)
-    c3 = Conv2D(64, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c3)
-    p3 = MaxPooling2D((2, 2))(c3)
-
-    c4 = Conv2D(128, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(p3)
-    c4 = Dropout(0.2)(c4)
-    c4 = Conv2D(128, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c4)
-    p4 = MaxPooling2D(pool_size=(2, 2))(c4)
-
-    c5 = Conv2D(256, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(p4)
-    c5 = Dropout(0.3)(c5)
-    c5 = Conv2D(256, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c5)
-
-    u6 = Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(c5)
-    u6 = concatenate([u6, c4])
-    c6 = Conv2D(128, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(u6)
-    c6 = Dropout(0.2)(c6)
-    c6 = Conv2D(128, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c6)
-
-    u7 = Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(c6)
-    u7 = concatenate([u7, c3])
-    c7 = Conv2D(64, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(u7)
-    c7 = Dropout(0.2)(c7)
-    c7 = Conv2D(64, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c7)
-
-    u8 = Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(c7)
-    u8 = concatenate([u8, c2])
-    c8 = Conv2D(32, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(u8)
-    c8 = Dropout(0.1)(c8)
-    c8 = Conv2D(32, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c8)
-
-    u9 = Conv2DTranspose(16, (2, 2), strides=(2, 2), padding='same')(c8)
-    u9 = concatenate([u9, c1], axis=3)
-    c9 = Conv2D(16, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(u9)
-    c9 = Dropout(0.1)(c9)
-    c9 = Conv2D(16, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same')(c9)
-
-    outputs = Conv2D(1, (1, 1), activation='sigmoid')(c9)
-    model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=[iou_coef,f, precision,recall])
-    #model.summary()
-    return model
-
 
 def showImg(id):
-    img = np.asarray(train[id])
-    plt.imshow(truth[id])
+    img = np.asarray(test[id])
+    real = test_truth[id]
+    real = cv2.merge((real, real, real))
+    plt.imshow(real)
     plt.show()
     img = img.reshape((1,) + img.shape)
     output = model.predict(img)[0]
@@ -134,8 +79,6 @@ def showImg(id):
     plt.imshow(output, interpolation='nearest')
     plt.show()
 
-def findWeights(ydata):
-    weights = class_weight.compute_class_weight('balanced',np.unique(ydata),ydata.flat)
 
 def load_data():
     train = []
@@ -158,9 +101,10 @@ def load_data():
 if __name__ == "__main__":
     train_size = 2250
     test_size = 750
-    model = unet_model()
+    model = models.relu()
+    WEIGHTS_FILE = 'weights/relu-4-0.h5'
     train, truth = load_data()
-    x, y = zip(*random.sample(list(zip(train, truth)), train_size + test_size))
+    x, y = train, truth
     x_train = np.asarray(x[:train_size])
     # x_train = x_train.reshape((1,)+ x_train.shape)
     x_test = np.asarray(x[train_size:])
@@ -171,21 +115,11 @@ if __name__ == "__main__":
     weight = {0: 1.0, 1: 10.0}
     callbacks = [EarlyStopping(patience=15, verbose=1, monitor='val_loss'),
                  ReduceLROnPlateau(patience=5, verbose=1, monitor='val_loss')]
-    WEIGHTS_FILE = 'newdata32-300-1.h5'
     if (True):
-        model.fit(x=x_train, y=y_train, batch_size=32, epochs=300, validation_data=(x_test, y_test) )#,callbacks=callbacks
+        model.fit(x=x_train, y=y_train, batch_size=32, epochs=150, validation_data=(x_test, y_test),callbacks=callbacks )#
         model.save_weights(WEIGHTS_FILE)
     else:
         model.load_weights(WEIGHTS_FILE)
-    #x = x_train[50]
-    #x = x.reshape((1,) + x.shape)
-    #out = model.predict(x)[0]
-    #print(model.evaluate(x_test, y_test))  # (loss,accuracy)
-    #print("--------------")
-    #showImg(2121)
-    #showImg(200)
-    #showImg(100)
-    #showImg(25)
     test_truth = []
     path = 'data/test_truth/'
     dir = sorted(os.listdir(path))
@@ -202,3 +136,6 @@ if __name__ == "__main__":
     test_truth = np.asarray(test_truth)
     test_truth = test_truth.reshape(test_truth.shape + (1,))
     print(model.evaluate(test,test_truth))
+    showImg(140)
+    showImg(30)
+    showImg(260)

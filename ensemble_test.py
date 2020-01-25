@@ -1,10 +1,12 @@
-from test import load_data, unet_model, dice_coef
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import math
 from matplotlib import image
 import os
+import pandas as pd
+import models as allmodels
+import openpyxl
 from collections import Counter
 def display_all(predicts):
     for p in predicts:
@@ -36,6 +38,10 @@ def f1(zipped):
             pre.append(p)
             rec.append(r)
             f1.append(f)
+        elif totalP!=0:
+            pre.append(0)
+            rec.append(0)
+            f1.append(0)
     return f1, pre, rec
 
 def showInfo(arr):
@@ -51,6 +57,7 @@ def eval(truth, predicted):
     zipped = zip(truth,predicted)
     f,p,r = f1(zipped)
     showInfo(f)
+    return f
 
 test_truth = []
 path = 'data/test_truth/'
@@ -67,10 +74,26 @@ for file in dir:
 test = np.asarray(test)
 test_truth = np.asarray(test_truth)
 test_truth = test_truth.reshape(test_truth.shape + (1,))
-models = [unet_model(),unet_model(),unet_model(),unet_model(),unet_model()]
-weight_base = 'newdata32-'
-for i in range(5):
-    models[i].load_weights(weight_base+str(i+1)+'.h5')
+models = []
+basic = False
+if basic:
+    weight_base = 'weights/2x2-'
+    for i in range(5):
+        model = allmodels.twoxtwo()
+        model.load_weights(weight_base+str(i+1)+'.h5')
+        models.append(model)
+else:
+    m1 = allmodels.extraLayer()
+    m1.load_weights('weights/extra-2.h5')
+    m2 = allmodels.unet_model()
+    m2.load_weights('weights/newdata32-1.h5')
+    m3 = allmodels.relu()
+    m3.load_weights('weights/relu-1.h5')
+    m4 = allmodels.unet_model()
+    m4.load_weights('weights/newdata32-100-4.h5')
+    m5 = allmodels.twoxtwo()
+    m5.load_weights('weights/2x2-3.h5')
+    models = [m1,m2,m3,m4,m5]
 x=200
 given = test[x]
 given = given.reshape((1,) + given.shape)
@@ -120,10 +143,37 @@ if (show):
     plt.show()
     display_all(predicts)
 
+scores = []
 for i in range(5):
-    print("Model " + str(i))
-    eval(test_truth, predicts[i])
+    print("Model " + str(i+1))
+    scores.append(eval(test_truth, predicts[i]))
 print("Ensamble")
-eval(test_truth, average)
+ensam_score = eval(test_truth, average)
 
+for s in scores:
+    print(s)
+print("")
+print("")
+print(ensam_score)
 
+worse = 0
+diff = []
+for i in range(len(ensam_score)):
+    best = max(scores[0][i],scores[1][i],scores[2][i],scores[3][i],scores[4][i])
+    if ensam_score[i] < best:
+        worse +=1
+        diff.append(best-ensam_score[i])
+print(worse)
+print(diff)
+print(str(sum(i > 0.1 for i in diff)))
+print(str(sum(i > 0.05 for i in diff)))
+print(str(sum(i > 0.01 for i in diff)))
+
+df = pd.DataFrame()
+df["Net 1"] = scores[0]
+df["Net 2"] = scores[1]
+df["Net 3"] = scores[2]
+df["Net 4"] = scores[3]
+df["Net 5"] = scores[4]
+df['Ensemble'] = ensam_score
+df.to_excel('ensemble_results_output.xlsx')
