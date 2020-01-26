@@ -39,3 +39,5 @@ try different number of filters and different size filters
 PREPROCESSING NORMALISATION ECT
 formalise current data composition adn distribution for experiment, format summary of results into a table
 Compare current on BRATS, initial weights then train on brats, Just train on BRATZ
+
+can crop bratz down, 49,49,41,20 (top,bot,left,right)
