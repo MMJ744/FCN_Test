@@ -10,17 +10,17 @@ import nibabel
 def load_data():
   train = []
   truth = []
-  path = 'data/brats_test/'
+  path = 'data/LGG/'
   dir = sorted(os.listdir(path))
-  for file in dir:
-    print(file)
-    x = nibabel.load(path + file)
-    data = x.get_fdata()
-
-    if 'seg' in file:
-      truth.append(data / 255)
-    else:
-      train.append(data / 255)
+  for folder in dir:
+    fdir = sorted(os.listdir(path + folder))
+    for file in fdir:
+      x = nibabel.load(path + folder + '/' + file)
+      data = x.get_fdata()
+      if 'seg' in file:
+        truth.append(data)
+      else:
+        train.append(data)
   return train, truth
 
 
@@ -30,12 +30,12 @@ def cropping_tests():
   path = 'data/brats_test/'
   dir = sorted(os.listdir(path))
   for file in dir:
-    print(file)
     img = nibabel.load(path + file)
     data = img.get_fdata()
     print("MAX ***** " + str(np.max(data)))
+    print(img.header)
     if 'seg' in file:
-      y.append(data / 255)
+      y.append(data)
     else:
       x.append(data / 255)
   test = x[0]
@@ -100,4 +100,10 @@ def readin():
 
 
 
-cropping_tests()
+x,y = load_data()
+print(len(x))
+print(len(y))
+x = np.asarray(x)
+y = np.asarray(y)
+print(x.shape)
+print(y.shape)
