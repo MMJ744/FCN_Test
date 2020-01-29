@@ -165,9 +165,9 @@ for i in range(len(ensam_score)):
         diff.append(best-ensam_score[i])
 print(worse)
 print(diff)
-print(str(sum(i > 0.1 for i in diff)))
-print(str(sum(i > 0.05 for i in diff)))
-print(str(sum(i > 0.01 for i in diff)))
+print(str(sum(i >= 0.1 for i in diff)))
+print(str(sum(i >= 0.05 for i in diff)))
+print(str(sum(i >= 0.01 for i in diff)))
 
 df = pd.DataFrame()
 df["Net 1"] = scores[0]
